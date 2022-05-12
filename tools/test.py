@@ -23,6 +23,7 @@ from anomalib.config import get_configurable_parameters
 from anomalib.data import get_datamodule
 from anomalib.models import get_model
 from anomalib.utils.callbacks import get_callbacks
+from anomalib.utils.loggers import get_logger
 
 
 def get_args() -> Namespace:
@@ -64,10 +65,11 @@ def test():
 
     datamodule = get_datamodule(config)
     model = get_model(config)
+    logger = get_logger(config)
 
     callbacks = get_callbacks(config)
 
-    trainer = Trainer(callbacks=callbacks, **config.trainer)
+    trainer = Trainer(callbacks=callbacks, logger=logger, **config.trainer)
     trainer.test(model=model, datamodule=datamodule)
 
 

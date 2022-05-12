@@ -26,9 +26,10 @@ model:
   layers:
     - layer2
     - layer3
-  coreset_sampling_ratio: 0.1
+  coreset_sampling_ratio: 0.05
   num_neighbors: 9
-  weight_file: weights/model.ckpt
+  metric: pixel_AUROC
+  # weight_file: weights/model.ckpt
   normalization_method: min_max # options: [null, min_max, cdf]
   threshold:
     image_default: 0
@@ -46,17 +47,17 @@ metrics:
 project:
   seed: 0
   path: ./results
-  log_images_to: [local]
-  logger: false # options: [tensorboard, wandb, csv] or combinations.
+  log_images_to: [local, wandb]
+  logger: wandb
 
 # PL Trainer Args. Don't add extra parameter here.
 trainer:
-  accelerator: auto # <"cpu", "gpu", "tpu", "ipu", "hpu", "auto">
+  accelerator: gpu
   accumulate_grad_batches: 1
   amp_backend: native
   auto_lr_find: false
   auto_scale_batch_size: false
-  auto_select_gpus: false
+  auto_select_gpus: true
   benchmark: false
   check_val_every_n_epoch: 1 # Don't validate before extracting features.
   default_root_dir: null
@@ -67,14 +68,14 @@ trainer:
   enable_model_summary: true
   enable_progress_bar: true
   fast_dev_run: false
-  gpus: null # Set automatically
+  gpus: 1
   gradient_clip_val: 0
   ipus: null
   limit_predict_batches: 1.0
   limit_test_batches: 1.0
   limit_train_batches: 1.0
   limit_val_batches: 1.0
-  log_every_n_steps: 50
+  log_every_n_steps: 5
   log_gpu_memory: null
   max_epochs: 1
   max_steps: -1

@@ -94,7 +94,7 @@ def update_multi_gpu_training_config(config: Union[DictConfig, ListConfig]) -> U
                     f"Please use one of [null, ddp]. Setting accelerator to ddp"
                 )
                 config.trainer.accelerator = "ddp"
-            else:
+            elif config.trainer.accelerator.lower() != 'gpu':
                 raise ValueError(
                     f"Unsupported accelerator found: {config.trainer.accelerator}. Should be one of [null, ddp]"
                 )

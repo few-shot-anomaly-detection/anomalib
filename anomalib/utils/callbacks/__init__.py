@@ -27,6 +27,7 @@ from .min_max_normalization import MinMaxNormalizationCallback
 from .model_loader import LoadModelCallback
 from .timer import TimerCallback
 from .visualizer_callback import VisualizerCallback
+from .ema import EMACallback
 
 __all__ = [
     "LoadModelCallback",
@@ -48,19 +49,25 @@ def get_callbacks(config: Union[ListConfig, DictConfig]) -> List[Callback]:
 
     monitor_metric = None if "early_stopping" not in config.model.keys() else config.model.early_stopping.metric
     monitor_mode = "max" if "early_stopping" not in config.model.keys() else config.model.early_stopping.mode
+    if monitor_metric is not None:
+        save_top_k = 3
+    else:
+        save_top_k = 1
 
     checkpoint = ModelCheckpoint(
         dirpath=os.path.join(config.project.path, "weights"),
-        filename="model",
+        filename="model-{epoch}-{step}",
         monitor=monitor_metric,
         mode=monitor_mode,
         auto_insert_metric_name=False,
+        save_top_k=save_top_k
     )
 
     callbacks.extend([checkpoint, TimerCallback()])
 
     if "weight_file" in config.model.keys():
-        load_model = LoadModelCallback(os.path.join(config.project.path, config.model.weight_file))
+        # load_model = LoadModelCallback(os.path.join(config.project.path, config.model.weight_file))
+        load_model = LoadModelCallback(config.model.weight_file)
         callbacks.append(load_model)
 
     if "normalization_method" in config.model.keys() and not config.model.normalization_method == "none":
@@ -108,5 +115,20 @@ def get_callbacks(config: Union[ListConfig, DictConfig]) -> List[Callback]:
                     filename="openvino_model",
                 )
             )
+
+    if "ema" in config.model.keys():
+        callbacks.append(EMACallback(
+            config.model.ema.decay, config.model.ema.update_steps
+        ))
+
+    if "ema" in config.model.keys():
+        callbacks.append(EMACallback(
+            config.model.ema.decay, config.model.ema.update_steps
+        ))
+
+    if "ema" in config.model.keys():
+        callbacks.append(EMACallback(
+            config.model.ema.decay, config.model.ema.update_steps
+        ))
 
     return callbacks

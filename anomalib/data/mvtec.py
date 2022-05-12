@@ -176,6 +176,7 @@ class MVTec(VisionDataset):
         task: str = "segmentation",
         seed: int = 0,
         create_validation_set: bool = False,
+        upsampling: int = 1
     ) -> None:
         """Mvtec AD Dataset class.
 
@@ -223,6 +224,7 @@ class MVTec(VisionDataset):
         self.category: str = category
         self.split = split
         self.task = task
+        self.upsampling = upsampling
 
         self.pre_process = pre_process
 
@@ -232,10 +234,11 @@ class MVTec(VisionDataset):
             seed=seed,
             create_validation_set=create_validation_set,
         )
+        self.dataset_len = len(self.samples)
 
     def __len__(self) -> int:
         """Get length of the dataset."""
-        return len(self.samples)
+        return self.dataset_len * self.upsampling
 
     def __getitem__(self, index: int) -> Dict[str, Union[str, Tensor]]:
         """Get dataset item for the index ``index``.
@@ -247,6 +250,7 @@ class MVTec(VisionDataset):
             Union[Dict[str, Tensor], Dict[str, Union[str, Tensor]]]: Dict of image tensor during training.
                 Otherwise, Dict containing image path, target path, image tensor, label and transformed bounding box.
         """
+        index = index % self.dataset_len
         item: Dict[str, Union[str, Tensor]] = {}
 
         image_path = self.samples.image_path[index]
@@ -297,6 +301,7 @@ class MVTecDataModule(LightningDataModule):
         transform_config_val: Optional[Union[str, A.Compose]] = None,
         seed: int = 0,
         create_validation_set: bool = False,
+        training_upsampling: int = 1
     ) -> None:
         """Mvtec AD Lightning Data Module.
 
@@ -361,6 +366,7 @@ class MVTecDataModule(LightningDataModule):
         self.create_validation_set = create_validation_set
         self.task = task
         self.seed = seed
+        self.training_upsampling = training_upsampling
 
         self.train_data: Dataset
         self.test_data: Dataset
@@ -412,6 +418,7 @@ class MVTecDataModule(LightningDataModule):
                 task=self.task,
                 seed=self.seed,
                 create_validation_set=self.create_validation_set,
+                upsampling=self.training_upsampling
             )
 
         if self.create_validation_set:

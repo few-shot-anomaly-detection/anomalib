@@ -179,3 +179,5 @@ class AnomalyModule(pl.LightningModule, ABC):
         self.log_dict(self.image_metrics)
         if self.pixel_metrics.update_called:
             self.log_dict(self.pixel_metrics)
+        print(self.image_metrics.compute())
+        print(self.pixel_metrics.compute())
