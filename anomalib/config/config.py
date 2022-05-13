@@ -48,6 +48,9 @@ def update_input_size_config(config: Union[DictConfig, ListConfig]) -> Union[Dic
         if config.dataset.tiling.stride is None:
             config.dataset.tiling.stride = config.dataset.tiling.tile_size
 
+    if 'training_upsampling' not in config.dataset.keys():
+        config.dataset.training_upsampling = 1
+
     return config
 
 

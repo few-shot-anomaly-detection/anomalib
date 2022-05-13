@@ -1,4 +1,7 @@
-"""Helper functions to create backbone model."""
+"""FASTFLOW: Unsupervised Anomaly Detection and Localization via 2D Normalizing Flows.
+
+[FASTFLOW-AD](https://arxiv.org/pdf/2111.07677.pdf)
+"""
 
 # Copyright (C) 2020 Intel Corporation
 #
@@ -14,13 +17,14 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 
-import math
+from torch import nn
+import logging
 
 import FrEIA.framework as Ff
 import FrEIA.modules as Fm
-import torch
 from FrEIA.framework.sequence_inn import SequenceINN
-from torch import nn
+
+logger = logging.getLogger(__name__)
 
 
 def subnet_conv1(dims_in: int, dims_out: int):
@@ -40,6 +44,7 @@ def subnet_conv1(dims_in: int, dims_out: int):
         nn.Conv2d(2 * dims_in, dims_out, kernel_size=kernel_size)
     )
 
+
 def subnet_conv3(dims_in: int, dims_out: int):
     """3x3 conv subnetwork to predicts the affine coefficients.
 
@@ -58,6 +63,17 @@ def subnet_conv3(dims_in: int, dims_out: int):
     )
 
 
+def subnet_conv_func(kernel_size, hidden_ratio=1.0):
+    def subnet_conv(dims_in: int, dims_out: int):
+        dims_hidden = int(dims_in * hidden_ratio)
+        return nn.Sequential(
+            nn.Conv2d(dims_in, dims_hidden, kernel_size=kernel_size, padding='same'),
+            nn.ReLU(),
+            nn.Conv2d(dims_hidden, dims_out, kernel_size=kernel_size, padding='same')
+        )
+    return subnet_conv
+
+
 def fastflow_head(condition_vector: int, coupling_blocks: int, clamp_alpha: float, n_features: int, dim) -> SequenceINN:
     """Create invertible decoder network.
 
@@ -71,21 +87,28 @@ def fastflow_head(condition_vector: int, coupling_blocks: int, clamp_alpha: floa
         SequenceINN: decoder network block
     """
     coder = Ff.SequenceINN(n_features, dim, dim)
-    print("CNF coder:", n_features)
-    for _ in range(coupling_blocks):
-        coder.append(
-            Fm.PermuteRandom
-        )
-        coder.append(
-            Fm.AllInOneBlock,
-            subnet_constructor=subnet_conv3,
-            affine_clamping=clamp_alpha,
-            global_affine_type="SOFTPLUS",
-        )
+    logger.info("CNF coder: %d, %d", n_features, dim)
+    for i in range(coupling_blocks):
+        if i % 2 == 1:
+            kernel_size = 1
+        else:
+            kernel_size = 3
         coder.append(
             Fm.AllInOneBlock,
-            subnet_constructor=subnet_conv1,
+            subnet_constructor=subnet_conv_func(kernel_size),
             affine_clamping=clamp_alpha,
-            global_affine_type="SOFTPLUS",
+            permute_soft=False
         )
+        # coder.append(
+        #     Fm.AllInOneBlock,
+        #     subnet_constructor=subnet_conv3,
+        #     affine_clamping=clamp_alpha,
+        #     global_affine_type="SOFTPLUS",
+        # )
+        # coder.append(
+        #     Fm.AllInOneBlock,
+        #     subnet_constructor=subnet_conv1,
+        #     affine_clamping=clamp_alpha,
+        #     global_affine_type="SOFTPLUS",
+        # )
     return coder
