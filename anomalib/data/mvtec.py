@@ -41,7 +41,7 @@ Reference:
 import logging
 import tarfile
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, List
 from urllib.request import urlretrieve
 
 import albumentations as A
@@ -170,7 +170,7 @@ class MVTec(VisionDataset):
     def __init__(
         self,
         root: Union[Path, str],
-        category: str,
+        category: List[str],
         pre_process: PreProcessor,
         split: str,
         task: str = "segmentation",
@@ -221,19 +221,30 @@ class MVTec(VisionDataset):
         """
         super().__init__(root)
         self.root = Path(root) if isinstance(root, str) else root
-        self.category: str = category
+        self.category: List[str] = category
         self.split = split
         self.task = task
         self.upsampling = upsampling
 
         self.pre_process = pre_process
 
-        self.samples = make_mvtec_dataset(
-            path=self.root / category,
-            split=self.split,
-            seed=seed,
-            create_validation_set=create_validation_set,
-        )
+        samples_list = []
+        for c in self.category:
+            samples_list.append(
+                make_mvtec_dataset(
+                    path=self.root / c,
+                    split=self.split,
+                    seed=seed,
+                    create_validation_set=create_validation_set
+                )
+            )
+        self.samples = pd.concat(samples_list, ignore_index=True)
+        # self.samples = make_mvtec_dataset(
+        #     path=self.root / category,
+        #     split=self.split,
+        #     seed=seed,
+        #     create_validation_set=create_validation_set,
+        # )
         self.dataset_len = len(self.samples)
 
     def __len__(self) -> int:
@@ -290,7 +301,7 @@ class MVTecDataModule(LightningDataModule):
     def __init__(
         self,
         root: str,
-        category: str,
+        category: List[str],
         # TODO: Remove default values. IAAALD-211
         image_size: Optional[Union[int, Tuple[int, int]]] = None,
         train_batch_size: int = 32,
@@ -348,7 +359,7 @@ class MVTecDataModule(LightningDataModule):
 
         self.root = root if isinstance(root, Path) else Path(root)
         self.category = category
-        self.dataset_path = self.root / self.category
+        # self.dataset_path = self.root / self.category
         self.transform_config_train = transform_config_train
         self.transform_config_val = transform_config_val
         self.image_size = image_size
@@ -376,7 +387,8 @@ class MVTecDataModule(LightningDataModule):
 
     def prepare_data(self) -> None:
         """Download the dataset if not available."""
-        if (self.root / self.category).is_dir():
+        # if (self.root / self.category).is_dir():
+        if (self.root).is_dir():
             logger.info("Found the dataset.")
         else:
             self.root.mkdir(parents=True, exist_ok=True)

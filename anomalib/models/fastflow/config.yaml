@@ -2,7 +2,7 @@ dataset:
   name: mvtec
   format: mvtec
   path: ./datasets/MVTec
-  category: mix
+  category: [cable, capsule, carpet, grid, hazelnut, leather, pill]
   task: segmentation
   image_size: 256
   train_batch_size: 16
@@ -47,7 +47,7 @@ metrics:
 project:
   seed: 0
   path: ./results
-  log_images_to: [local, wandb]
+  log_images_to: [local]
   logger: wandb
 
 # PL Trainer Args. Don't add extra parameter here.

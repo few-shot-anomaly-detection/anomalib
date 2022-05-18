@@ -153,7 +153,11 @@ def get_configurable_parameters(
     # Project Configs
     project_path = Path(config.project.path) / config.model.name / config.dataset.name
     if config.dataset.format.lower() in ("btech", "mvtec"):
-        project_path = project_path / config.dataset.category
+        if len(config.dataset.category) > 1:
+            category_name = 'mix_{}'.format(len(config.dataset.category))
+        else:
+            category_name = config.dataset.category[0]
+        project_path = project_path / category_name
 
     (project_path / "weights").mkdir(parents=True, exist_ok=True)
     (project_path / "images").mkdir(parents=True, exist_ok=True)

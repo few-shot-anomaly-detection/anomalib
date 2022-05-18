@@ -92,10 +92,11 @@ def get_experiment_logger(
         elif logger == "wandb":
             wandb_logdir = os.path.join(config.project.path, "logs")
             os.makedirs(wandb_logdir, exist_ok=True)
+            category_name = '_'.join(config.dataset.category)
             logger_list.append(
                 AnomalibWandbLogger(
                     project=config.dataset.name,
-                    name=f"{config.dataset.category} {config.model.name}",
+                    name=f"{category_name} {config.model.name}",
                     save_dir=wandb_logdir,
                 )
             )
