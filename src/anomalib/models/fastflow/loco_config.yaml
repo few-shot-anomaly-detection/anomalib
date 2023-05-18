@@ -1,9 +1,9 @@
 dataset:
-  name: mvtec
+  name: mvtec_loco
   format: mvtec
-  path: ./datasets/MVTec
+  path: ./datasets/MVTec_LOCO
   task: segmentation
-  category: bottle
+  category: pushpins # breakfast_box
   train_batch_size: 32
   eval_batch_size: 32
   num_workers: 8

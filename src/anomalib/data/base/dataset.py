@@ -131,6 +131,7 @@ class AnomalibDataset(Dataset, ABC):
                 mask = np.zeros(shape=image.shape[:2])
             else:
                 mask = cv2.imread(mask_path, flags=0) / 255.0
+                mask[mask > 0] = 1.0
 
             transformed = self.transform(image=image, mask=mask)
 
