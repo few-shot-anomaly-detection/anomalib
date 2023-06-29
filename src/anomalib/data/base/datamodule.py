@@ -21,6 +21,7 @@ from anomalib.data.utils import (
     ValSplitMode,
     random_split,
     split_by_label,
+    filter_anomaly_labels,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ class AnomalibDataModule(LightningDataModule, ABC):
         test_split_mode: TestSplitMode | None = None,
         test_split_ratio: float | None = None,
         seed: int | None = None,
+        anomaly_labels: list[str] | None = [],
     ) -> None:
         super().__init__()
         self.train_batch_size = train_batch_size
@@ -85,6 +87,7 @@ class AnomalibDataModule(LightningDataModule, ABC):
         self.val_split_mode = val_split_mode
         self.val_split_ratio = val_split_ratio
         self.seed = seed
+        self.anomaly_labels = anomaly_labels
 
         self.train_data: AnomalibDataset
         self.val_data: AnomalibDataset
@@ -126,6 +129,8 @@ class AnomalibDataModule(LightningDataModule, ABC):
         if self.test_data.has_normal:
             # split the test data into normal and anomalous so these can be processed separately
             normal_test_data, self.test_data = split_by_label(self.test_data)
+            self.test_data = filter_anomaly_labels(self.test_data, self.anomaly_labels)
+            print(self.test_data.samples.label.unique())
         elif self.test_split_mode != TestSplitMode.NONE:
             # when the user did not provide any normal images for testing, we sample some from the training set,
             # except when the user explicitly requested no test splitting.

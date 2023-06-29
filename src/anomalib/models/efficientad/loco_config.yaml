@@ -1,9 +1,10 @@
 dataset:
   name: mvtec_loco
-  format: mvtec
+  format: mvtec_loco
   path: ./datasets/MVTec_LOCO
-  category: pushpins # splicing_connectors
   task: segmentation
+  category: pushpins  # splicing_connectors # breakfast_box
+  anomaly_labels: [logical_anomalies]
   train_batch_size: 1
   eval_batch_size: 16
   num_workers: 8
@@ -58,7 +59,7 @@ project:
   path: ./results
 
 logging:
-  logger: [] # options: [comet, tensorboard, wandb, csv] or combinations.
+  logger: [csv] # options: [comet, tensorboard, wandb, csv] or combinations.
   log_graph: false # Logs the model graph to respective logger.
 
 optimization:
@@ -77,7 +78,7 @@ trainer:
   check_val_every_n_epoch: 1 # Don't validate before extracting features.
   fast_dev_run: false
   accumulate_grad_batches: 1
-  max_epochs: 200
+  max_epochs: 100
   min_epochs: null
   max_steps: -1
   min_steps: null

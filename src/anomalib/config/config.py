@@ -140,6 +140,9 @@ def update_datasets_config(config: DictConfig | ListConfig) -> DictConfig | List
     if "format" not in config.dataset.keys():
         config.dataset.format = "mvtec"
 
+    if "anomaly_labels" not in config.dataset.keys():
+        config.dataset.anomaly_labels = []
+
     if "create_validation_set" in config.dataset.keys():
         warn(
             DeprecationWarning(
@@ -261,7 +264,7 @@ def get_configurable_parameters(
             config.dataset.root = config.dataset.path
 
     # add category subfolder if needed
-    if config.dataset.format.lower() in ("btech", "mvtec", "visa"):
+    if config.dataset.format.lower() in ("btech", "mvtec", "visa", "mvtec_loco"):
         project_path = project_path / config.dataset.category
 
     # set to False by default for backward compatibility

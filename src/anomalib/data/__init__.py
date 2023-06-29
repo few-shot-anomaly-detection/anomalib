@@ -10,6 +10,8 @@ from enum import Enum
 
 from omegaconf import DictConfig, ListConfig
 
+from anomalib.data.mvtec_loco import MVTecLOCO
+
 from .avenue import Avenue
 from .base import AnomalibDataModule, AnomalibDataset
 from .btech import BTech
@@ -30,6 +32,7 @@ class DataFormat(str, Enum):
     """Supported Dataset Types"""
 
     MVTEC = "mvtec"
+    MVTEC_LOCO = "mvtec_loco"
     MVTEC_3D = "mvtec_3d"
     BTECH = "btech"
     FOLDER = "folder"
@@ -75,6 +78,25 @@ def get_datamodule(config: DictConfig | ListConfig) -> AnomalibDataModule:
             test_split_ratio=config.dataset.test_split_ratio,
             val_split_mode=config.dataset.val_split_mode,
             val_split_ratio=config.dataset.val_split_ratio,
+        )
+    elif config.dataset.format.lower() == DataFormat.MVTEC_LOCO:
+        datamodule = MVTecLOCO(
+            root=config.dataset.path,
+            category=config.dataset.category,
+            image_size=(config.dataset.image_size[0], config.dataset.image_size[1]),
+            center_crop=center_crop,
+            normalization=config.dataset.normalization,
+            train_batch_size=config.dataset.train_batch_size,
+            eval_batch_size=config.dataset.eval_batch_size,
+            num_workers=config.dataset.num_workers,
+            task=config.dataset.task,
+            transform_config_train=config.dataset.transform_config.train,
+            transform_config_eval=config.dataset.transform_config.eval,
+            test_split_mode=config.dataset.test_split_mode,
+            test_split_ratio=config.dataset.test_split_ratio,
+            val_split_mode=config.dataset.val_split_mode,
+            val_split_ratio=config.dataset.val_split_ratio,
+            anomaly_labels=config.dataset.anomaly_labels,
         )
     elif config.dataset.format.lower() == DataFormat.MVTEC_3D:
         datamodule = MVTec3D(

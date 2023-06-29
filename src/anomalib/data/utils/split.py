@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 import warnings
 from enum import Enum
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, List, Sequence
 
 import torch
 
@@ -134,3 +134,17 @@ def split_by_label(dataset: AnomalibDataset) -> tuple[AnomalibDataset, AnomalibD
     normal_subset = dataset.subsample(list(normal_indices))
     anomalous_subset = dataset.subsample(list(anomalous_indices))
     return normal_subset, anomalous_subset
+
+
+def filter_anomaly_labels(dataset: AnomalibDataset, anomaly_labels: List[str] | None) -> AnomalibDataset:
+    """Filters the dataset by anomaly labels."""
+    if len(anomaly_labels) == 0:
+        return dataset
+
+    indices = set()
+    samples = dataset.samples
+    for label in anomaly_labels:
+        indices = indices.union(samples[samples.label == label].index)
+    indices = sorted(list(indices))
+    return dataset.subsample(indices)
+

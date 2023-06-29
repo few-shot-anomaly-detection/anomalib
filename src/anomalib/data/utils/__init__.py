@@ -23,6 +23,7 @@ from .split import (
     concatenate_datasets,
     random_split,
     split_by_label,
+    filter_anomaly_labels,
 )
 from .transform import InputNormalizationMethod, get_transforms
 
@@ -35,6 +36,7 @@ __all__ = [
     "read_depth_image",
     "random_split",
     "split_by_label",
+    "filter_anomaly_labels",
     "concatenate_datasets",
     "Split",
     "ValSplitMode",
