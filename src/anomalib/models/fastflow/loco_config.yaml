@@ -2,8 +2,8 @@ dataset:
   name: mvtec_loco
   format: mvtec_loco
   path: ./datasets/MVTec_LOCO
-  task: segmentation
-  category: pushpins # breakfast_box
+  task: classification
+  category: pushpins
   anomaly_labels: [logical_anomalies]
   train_batch_size: 32
   eval_batch_size: 32
@@ -28,16 +28,17 @@ dataset:
 
 model:
   name: fastflow
-  backbone: wide_resnet50_2 # options: [resnet18, wide_resnet50_2, cait_m48_448, deit_base_distilled_patch16_384]
+  backbone: wide_resnet50_2  # vit_small_patch14_dinov2.lvd142m # options: [resnet18, wide_resnet50_2, cait_m48_448, deit_base_distilled_patch16_384]
   pre_trained: true
-  flow_steps: 8 # options: [8, 8, 20, 20] - for each supported backbone
-  hidden_ratio: 1.0 # options: [1.0, 1.0, 0.16, 0.16] - for each supported backbone
+  flow_steps: 20  # options: [8, 8, 20, 20] - for each supported backbone
+  hidden_ratio: 0.16  # options: [1.0, 1.0, 0.16, 0.16] - for each supported backbone
   conv3x3_only: False # options: [True, False, False, False] - for each supported backbone
   lr: 0.001
   weight_decay: 0.00001
   early_stopping:
-    patience: 3
-    metric: pixel_AUROC
+    patience: 10
+      # metric: pixel_AUROC
+    metric: image_AUROC
     mode: max
   normalization_method: min_max # options: [null, min_max, cdf]
 
@@ -66,7 +67,7 @@ project:
   path: ./results
 
 logging:
-  logger: [wandb] # options: [comet, tensorboard, wandb, csv] or combinations.
+  logger: [csv] # options: [comet, tensorboard, wandb, csv] or combinations.
   log_graph: false # Logs the model graph to respective logger.
 
 optimization:
@@ -83,7 +84,7 @@ trainer:
   enable_progress_bar: true
   overfit_batches: 0.0
   track_grad_norm: -1
-  check_val_every_n_epoch: 1 # Don't validate before extracting features.
+  check_val_every_n_epoch: 10  # Don't validate before extracting features.
   fast_dev_run: false
   accumulate_grad_batches: 1
   max_epochs: 500

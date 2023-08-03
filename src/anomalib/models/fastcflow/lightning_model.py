@@ -12,11 +12,11 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT
 from torch import Tensor, optim
 
 from anomalib.models.components import AnomalyModule
-from anomalib.models.fastflow.loss import FastflowLoss
-from anomalib.models.fastflow.torch_model import FastflowModel
+from anomalib.models.fastcflow.loss import FastflowLoss
+from anomalib.models.fastcflow.torch_model import FastCflowModel
 
 
-class Fastflow(AnomalyModule):
+class FastCflow(AnomalyModule):
     """PL Lightning Module for the FastFlow algorithm.
 
     Args:
@@ -39,7 +39,7 @@ class Fastflow(AnomalyModule):
     ) -> None:
         super().__init__()
 
-        self.model = FastflowModel(
+        self.model = FastCflowModel(
             input_size=input_size,
             backbone=backbone,
             pre_trained=pre_trained,
@@ -77,16 +77,15 @@ class Fastflow(AnomalyModule):
         """
         del args, kwargs  # These variables are not used.
 
-        anomaly_maps, anomaly_scores = self.model(batch["image"])
+        anomaly_maps = self.model(batch["image"])
         batch["anomaly_maps"] = anomaly_maps
-        # batch["pred_scores"] = (
-        #     anomaly_maps.reshape(anomaly_maps.shape[0], -1).mean(dim=1).values
-        # )
-        batch["pred_scores"] = anomaly_scores
+        batch["pred_scores"] = (
+            anomaly_maps.reshape(anomaly_maps.shape[0], -1).max(dim=1).values
+        )
         return batch
 
 
-class FastflowLightning(Fastflow):
+class FastcflowLightning(FastCflow):
     """PL Lightning Module for the FastFlow algorithm.
 
     Args:

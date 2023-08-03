@@ -21,7 +21,9 @@ from anomalib.models.dfkde import Dfkde
 from anomalib.models.dfm import Dfm
 from anomalib.models.draem import Draem
 from anomalib.models.efficientad import EfficientAD
+from anomalib.models.segad import SegAD
 from anomalib.models.fastflow import Fastflow
+from anomalib.models.fastcflow import FastCflow
 from anomalib.models.ganomaly import Ganomaly
 from anomalib.models.padim import Padim
 from anomalib.models.patchcore import Patchcore
@@ -45,6 +47,8 @@ __all__ = [
     "Stfpm",
     "AiVad",
     "EfficientAD",
+    "SegAD",
+    "FastCflow",
 ]
 
 logger = logging.getLogger(__name__)
@@ -98,6 +102,8 @@ def get_model(config: DictConfig | ListConfig) -> AnomalyModule:
         "stfpm",
         "ai_vad",
         "efficientad",
+        "segad",
+        "fastcflow",
     ]
     model: AnomalyModule
 

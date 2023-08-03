@@ -33,14 +33,12 @@ class AnomalyMapGenerator(nn.Module):
             Tensor: Anomaly Map.
         """
         flow_maps: list[Tensor] = []
-        img_probs: list[Tensor] = []
         for hidden_variable in hidden_variables:
             # NOTE
             # n, _, w, h = hidden_variable.shape
             # hidden_variables = hidden_variable.view(n, w, h, -1).permute(0, 3, 1, 2)
 
             log_prob = -torch.mean(hidden_variable**2, dim=1, keepdim=True) * 0.5
-            img_probs.append(-log_prob.reshape(log_prob.shape[0], -1).sum(dim=1))
             prob = torch.exp(log_prob)
             flow_map = F.interpolate(
                 input=-prob,
@@ -52,8 +50,4 @@ class AnomalyMapGenerator(nn.Module):
         flow_maps = torch.stack(flow_maps, dim=-1)
         anomaly_map = torch.mean(flow_maps, dim=-1)
 
-        # log_probs = torch.stack(img_probs, dim=-1)
-        # anomaly_score = torch.max(log_probs, dim=-1).values
-        anomaly_score = anomaly_map.reshape(anomaly_map.shape[0], -1).max(dim=1).values
-
-        return anomaly_map, anomaly_score
+        return anomaly_map

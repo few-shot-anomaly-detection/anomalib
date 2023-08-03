@@ -15,13 +15,64 @@ from typing import Callable
 
 import timm
 import torch
+import numpy as np
+
 from FrEIA.framework import SequenceINN
+from FrEIA.modules import GLOWCouplingBlock
 from timm.models.cait import Cait
 from timm.models.vision_transformer import VisionTransformer
 from torch import Tensor, nn
 
 from anomalib.models.components.flow import AllInOneBlock, Glow
 from anomalib.models.fastflow.anomaly_map import AnomalyMapGenerator
+
+
+class F_conv(nn.Module):
+      '''ResNet transformation, not itself reversible, just used below'''
+
+      def __init__(self, in_channels, channels, channels_hidden,
+                   kernel_size=3, leaky_slope=0.1,
+                   batch_norm=False):
+          super(F_conv, self).__init__()
+
+          if not channels_hidden:
+              channels_hidden = channels
+
+          pad = kernel_size // 2
+          pad_mode = ['zeros', 'replicate'][1]
+          self.leaky_slope = leaky_slope
+          self.gamma = nn.Parameter(torch.zeros(1))
+          self.conv1 = nn.Conv2d(in_channels, channels_hidden,
+                                 kernel_size=kernel_size, padding=pad, padding_mode=pad_mode,
+                                 bias=not batch_norm)
+          self.conv2 = nn.Conv2d(channels_hidden, channels,
+                                 kernel_size=kernel_size, padding=pad, padding_mode=pad_mode,
+                                 bias=not batch_norm)
+          self.relu = nn.ReLU(inplace=False)
+
+      def forward(self, x):
+          out = self.conv1(x)
+          out = self.relu(out)
+          out = self.conv2(out)
+          out = out * self.gamma
+          return out
+
+
+
+class F_linear(nn.Module):
+      '''ResNet transformation, not itself reversible, just used below'''
+      def __init__(self, in_channels, channels, channels_hidden):
+          super(F_linear, self).__init__()
+          self.gamma = nn.Parameter(torch.zeros(1))
+          self.linear1 = nn.Conv1d(in_channels, channels_hidden, 1)
+          self.linear2 = nn.Conv1d(channels_hidden, channels, 1)
+          self.relu = nn.ReLU(inplace=False)
+
+      def forward(self, x):
+          out = self.linear1(x)
+          out = self.relu(out)
+          out = self.linear2(out)
+          return out
 
 
 def subnet_conv_func(kernel_size: int, hidden_ratio: float) -> Callable:
@@ -40,18 +91,21 @@ def subnet_conv_func(kernel_size: int, hidden_ratio: float) -> Callable:
     """
 
     def subnet_conv(in_channels: int, out_channels: int) -> nn.Sequential:
-        hidden_channels = int(in_channels * hidden_ratio)
+        # hidden_channels = int(in_channels * hidden_ratio)
+        hidden_channels = 128
         # NOTE: setting padding="same" in nn.Conv2d breaks the onnx export so manual padding required.
         # TODO: Use padding="same" in nn.Conv2d once PyTorch v2.1 is released
-        padding = 2 * (kernel_size // 2 - ((1 + kernel_size) % 2), kernel_size // 2)
-        return nn.Sequential(
-            nn.ZeroPad2d(padding),
-            nn.Conv2d(in_channels, hidden_channels, kernel_size),
-            nn.ReLU(),
-            nn.ZeroPad2d(padding),
-            nn.Conv2d(hidden_channels, out_channels, kernel_size),
-        )
-
+        # padding = 2 * (kernel_size // 2 - ((1 + kernel_size) % 2), kernel_size // 2)
+        # return nn.Sequential(
+        #     nn.ZeroPad2d(padding),
+        #     nn.Conv2d(in_channels, hidden_channels, kernel_size),
+        #     nn.ReLU(),
+        #     nn.ZeroPad2d(padding),
+        #     nn.Conv2d(hidden_channels, out_channels, kernel_size),
+        # )
+        return F_conv(in_channels, out_channels,
+                      hidden_channels, kernel_size=kernel_size)
+        # return F_linear(in_channels, out_channels, hidden_channels)
     return subnet_conv
 
 
@@ -60,7 +114,8 @@ def create_fast_flow_block(
     conv3x3_only: bool,
     hidden_ratio: float,
     flow_steps: int,
-    clamp: float = 2.0,
+    clamp: float = 1.9,
+    cond_dim: int = 128,
 ) -> SequenceINN:
     """Create NF Fast Flow Block.
 
@@ -88,11 +143,36 @@ def create_fast_flow_block(
             subnet_constructor=subnet_conv_func(kernel_size, hidden_ratio),
             affine_clamping=clamp,
             permute_soft=False,
+            # cond=0,
+            # cond_shape=cond_dim
         )
     return nodes
 
 
-class FastflowModel(nn.Module):
+def positionalencoding2d(D, H, W):
+      """
+      taken from https://github.com/gudovskiy/cflow-ad
+      :param D: dimension of the model
+      :param H: H of the positions
+      :param W: W of the positions
+      :return: DxHxW position matrix
+      """
+      if D % 4 != 0:
+          raise ValueError("Cannot use sin/cos positional encoding with odd dimension (got dim={:d})".format(D))
+      P = torch.zeros(D, H, W)
+      # Each dimension use half of D
+      D = D // 2
+      div_term = torch.exp(torch.arange(0.0, D, 2) * -(np.log(1e4) / D))
+      pos_w = torch.arange(0.0, W).unsqueeze(1)
+      pos_h = torch.arange(0.0, H).unsqueeze(1)
+      P[0:D:2, :, :] = torch.sin(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, H, 1)
+      P[1:D:2, :, :] = torch.cos(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, H, 1)
+      P[D::2, :, :] = torch.sin(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, W)
+      P[D + 1::2, :, :] = torch.cos(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, W)
+      return P[None]
+
+
+class FastCflowModel(nn.Module):
     """FastFlow.
 
     Unsupervised Anomaly Detection and Localization via 2D Normalizing Flows.
@@ -132,8 +212,7 @@ class FastflowModel(nn.Module):
                 backbone,
                 pretrained=pre_trained,
                 features_only=True,
-                # out_indices=[1, 2, 3],
-                out_indices=[4],
+                out_indices=[1, 2, 3],
             )
             channels = self.feature_extractor.feature_info.channels()
             scales = self.feature_extractor.feature_info.reduction()
@@ -165,14 +244,31 @@ class FastflowModel(nn.Module):
         for parameter in self.feature_extractor.parameters():
             parameter.requires_grad = False
 
+        # NOTE: pos encoding
+        pos_enc_dim = channels[0]
+        self.register_buffer(
+            'pos_enc',
+            positionalencoding2d(
+                pos_enc_dim,
+                int(input_size[0] / scales[0]),
+                int(input_size[1] / scales[0])
+            )
+        )
+
         self.fast_flow_blocks = nn.ModuleList()
         for channel, scale in zip(channels, scales):
             self.fast_flow_blocks.append(
                 create_fast_flow_block(
                     input_dimensions=[channel, int(input_size[0] / scale), int(input_size[1] / scale)],
+                    # input_dimensions=[int(input_size[0] / scale) * int(input_size[1] / scale), channel],
                     conv3x3_only=conv3x3_only,
                     hidden_ratio=hidden_ratio,
                     flow_steps=flow_steps,
+                    # cond_dim=(
+                    #     pos_enc_dim,
+                    #     int(input_size[0] / scales[0]),
+                    #     int(input_size[1] / scales[0])
+                    # )
                 )
             )
             # self.fast_flow_blocks.append(
@@ -210,9 +306,13 @@ class FastflowModel(nn.Module):
         # NOTE: output variable has z, and jacobian tuple for each fast-flow blocks.
         hidden_variables: list[Tensor] = []
         log_jacobians: list[Tensor] = []
+        # cond = self.pos_enc.tile(features[0].shape[0], 1, 1, 1)
         for fast_flow_block, feature in zip(self.fast_flow_blocks, features):
+            # hidden_variable, log_jacobian = fast_flow_block(feature, c=[cond])
+            B, C, H, W = feature.shape
+            feature = feature.permute(0, 2, 3, 1).view(B, H * W, C)
             hidden_variable, log_jacobian = fast_flow_block(feature)
-            hidden_variables.append(hidden_variable)
+            hidden_variables.append(hidden_variable.view(B, H, W, C).permute(0, 3, 1, 2))
             log_jacobians.append(log_jacobian)
 
         return_val = (hidden_variables, log_jacobians)

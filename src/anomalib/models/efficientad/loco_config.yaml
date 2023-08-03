@@ -3,7 +3,7 @@ dataset:
   format: mvtec_loco
   path: ./datasets/MVTec_LOCO
   task: segmentation
-  category: pushpins  # splicing_connectors # breakfast_box
+  category: breakfast_box # pushpins # breakfast_box
   anomaly_labels: [logical_anomalies]
   train_batch_size: 1
   eval_batch_size: 16
@@ -23,13 +23,13 @@ model:
   name: efficientad
   teacher_file_name: src/anomalib/models/efficientad/pre_trained/teacher_medium_rximg.pth
   teacher_out_channels: 384
-  model_size: M
+  model_size: medium
   lr: 0.0001
   weight_decay: 0.00001
-  early_stopping:
-    patience: 3
-    metric: pixel_AUROC
-    mode: max
+    # early_stopping:
+    #   patience: 3
+    #   metric: pixel_AUROC
+    #   mode: max
   padding: true
   # generic params
   normalization_method: min_max # options: [null, min_max, cdf]
@@ -75,10 +75,10 @@ trainer:
   enable_progress_bar: true
   overfit_batches: 0.0
   track_grad_norm: -1
-  check_val_every_n_epoch: 1 # Don't validate before extracting features.
+  check_val_every_n_epoch: 20 # Don't validate before extracting features.
   fast_dev_run: false
   accumulate_grad_batches: 1
-  max_epochs: 100
+  max_epochs: 200
   min_epochs: null
   max_steps: -1
   min_steps: null

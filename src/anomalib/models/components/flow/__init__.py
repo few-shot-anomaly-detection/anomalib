@@ -4,5 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .all_in_one_block import AllInOneBlock
+from .glow import Glow
 
-__all__ = ["AllInOneBlock"]
+__all__ = ["AllInOneBlock", "Glow"]

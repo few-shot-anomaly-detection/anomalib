@@ -1,13 +1,14 @@
 dataset:
-  name: mvtec
-  format: mvtec
-  path: ./datasets/MVTec
+  name: mvtec_loco
+  format: mvtec_loco
+  path: ./datasets/MVTec_LOCO
   task: segmentation
-  category: bottle
-  train_batch_size: 32
-  eval_batch_size: 32
+  category: splicing_connectors  # screw_bag  # splicing_connectors # pushpins # breakfast_box
+  anomaly_labels: [logical_anomalies]
+  train_batch_size: 16
+  eval_batch_size: 16
   num_workers: 8
-  image_size: 448 # dimensions to which images are resized (mandatory) options: [256, 256, 448, 384]
+  image_size: 224 # dimensions to which images are resized (mandatory)
   center_crop: null # dimensions to which images are center-cropped after resizing (optional)
   normalization: imagenet # data distribution to which the images will be normalized: [none, imagenet]
   transform_config:
@@ -17,27 +18,20 @@ dataset:
   test_split_ratio: 0.2 # fraction of train images held out testing (usage depends on test_split_mode)
   val_split_mode: same_as_test # options: [same_as_test, from_test, synthetic]
   val_split_ratio: 0.5 # fraction of train/test images held out for validation (usage depends on val_split_mode)
-  tiling:
-    apply: false
-    tile_size: null
-    stride: null
-    remove_border_count: 0
-    use_random_tiling: False
-    random_tile_count: 16
 
 model:
-  name: fastflow
-  backbone: cait_m48_448 # options: [resnet18, wide_resnet50_2, cait_m48_448, deit_base_distilled_patch16_384]
-  pre_trained: true
-  flow_steps: 20 # options: [8, 8, 20, 20] - for each supported backbone
-  hidden_ratio: 0.16 # options: [1.0, 1.0, 0.16, 0.16] - for each supported backbone
-  conv3x3_only: False # options: [True, False, False, False] - for each supported backbone
-  lr: 0.001
+  name: segad
+  n_clusters: 5
+  seg_dir: /home/lucien/repos/ComAD
+  background_indices: []  # [0, 1, 3]
+  lr: 0.0001
   weight_decay: 0.00001
   early_stopping:
     patience: 3
-    metric: pixel_AUROC
+    metric: image_AUROC
     mode: max
+  padding: true
+  # generic params
   normalization_method: min_max # options: [null, min_max, cdf]
 
 metrics:
@@ -56,7 +50,7 @@ metrics:
 visualization:
   show_images: False # show images on the screen
   save_images: True # save images to the file system
-  log_images: True # log images to the available loggers (if any)
+  log_images: False # log images to the available loggers (if any)
   image_save_path: null # path to which images will be saved
   mode: full # options: ["full", "simple"]
 
@@ -65,12 +59,11 @@ project:
   path: ./results
 
 logging:
-  logger: [wandb] # options: [comet, tensorboard, wandb, csv] or combinations.
+  logger: [csv] # options: [comet, tensorboard, wandb, csv] or combinations.
   log_graph: false # Logs the model graph to respective logger.
 
 optimization:
   export_mode: null # options: torch, onnx, openvino
-
 # PL Trainer Args. Don't add extra parameter here.
 trainer:
   enable_checkpointing: true
@@ -82,10 +75,10 @@ trainer:
   enable_progress_bar: true
   overfit_batches: 0.0
   track_grad_norm: -1
-  check_val_every_n_epoch: 1 # Don't validate before extracting features.
+  check_val_every_n_epoch: 20 # Don't validate before extracting features.
   fast_dev_run: false
   accumulate_grad_batches: 1
-  max_epochs: 500
+  max_epochs: 200
   min_epochs: null
   max_steps: -1
   min_steps: null

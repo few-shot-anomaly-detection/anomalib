@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import timm
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -37,8 +38,16 @@ class PatchcoreModel(DynamicBufferModule, nn.Module):
         self.input_size = input_size
         self.num_neighbors = num_neighbors
 
-        self.feature_extractor = FeatureExtractor(backbone=self.backbone, pre_trained=pre_trained, layers=self.layers)
-        self.feature_pooler = torch.nn.AvgPool2d(3, 1, 1)
+        self.vit_feature_extractor = self.backbone.startswith("vit")
+        if self.vit_feature_extractor:
+            self.feature_extractor = timm.create_model(
+                self.backbone,
+                pretrained=pre_trained,
+                img_size=224
+            )
+        else:
+            self.feature_extractor = FeatureExtractor(backbone=self.backbone, pre_trained=pre_trained, layers=self.layers)
+            self.feature_pooler = torch.nn.AvgPool2d(3, 1, 1)
         self.anomaly_map_generator = AnomalyMapGenerator(input_size=input_size)
 
         self.register_buffer("memory_bank", Tensor())
@@ -63,10 +72,26 @@ class PatchcoreModel(DynamicBufferModule, nn.Module):
             input_tensor = self.tiler.tile(input_tensor)
 
         with torch.no_grad():
-            features = self.feature_extractor(input_tensor)
+            if self.vit_feature_extractor:
+                features = self.feature_extractor.get_intermediate_layers(
+                    input_tensor,
+                    n=1,
+                    reshape=True,
+                    norm=True
+                )[0]
+                embedding = features
+            else:
+                features = self.feature_extractor(input_tensor)
+                # features = {layer: self.feature_pooler(feature) for layer, feature in features.items()}
+                embedding = self.generate_embedding(features)
 
-        features = {layer: self.feature_pooler(feature) for layer, feature in features.items()}
-        embedding = self.generate_embedding(features)
+        # NOTE: add self correlation
+        #vit_small_patch8_224.dino embedding = embedding / torch.norm(embedding, dim=1, keepdim=True)
+        # _, _, width, height = embedding.shape
+        # corr = torch.einsum('ncwh,ncij->nwhij', embedding, embedding)
+        # corr = corr.reshape((corr.shape[0], -1, width, height))
+        # embedding = torch.cat((embedding, corr), 1)
+        # embedding = corr
 
         if self.tiler:
             embedding = self.tiler.untile(embedding)
@@ -79,6 +104,16 @@ class PatchcoreModel(DynamicBufferModule, nn.Module):
         else:
             # apply nearest neighbor search
             patch_scores, locations = self.nearest_neighbors(embedding=embedding, n_neighbors=1)
+            # nearest_embeddings = self.memory_bank[locations]
+            # corr_len = width * height
+            # corr_distance = (embedding[:, -corr_len:] - nearest_embeddings[:, -corr_len:]) ** 2
+            # corr_distance = corr_distance.reshape([batch_size, corr_len, -1])
+            # corr_distance = corr_distance.mean(dim=1)
+            # # distances = (embedding - nearest_embeddings) ** 2
+            # # distances = distances.reshape([batch_size, width * height, -1])
+            # # distances = distances.mean(dim=1)
+            # patch_scores = (patch_scores.reshape([batch_size, -1]) + corr_distance) / 2
+
             # reshape to batch dimension
             patch_scores = patch_scores.reshape((batch_size, -1))
             locations = locations.reshape((batch_size, -1))
